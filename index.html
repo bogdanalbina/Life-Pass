@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life Pass</title>
+    <!-- Load Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PWA Installation Fixes (REQUIRED for Full-Screen Standalone Mode) -->
+    <!-- 1. Forces iOS devices to launch in full-screen standalone mode -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- 2. Sets the default status bar color for iOS -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- PWA Manifest Configuration -->
+    <!-- The JavaScript below will dynamically inject the manifest link -->
+
+    <style>
+        /* Custom styles for mobile-first PWA feel */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Dark background for a modern feel */
+            color: #c9d1d9;
+            /* Ensure the app is always centered and contained for mobile view */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 420px; /* Mobile portrait width limit */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #161b22; /* Slightly lighter inner background */
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            padding-bottom: 60px; /* Space for the bottom navigation */
+        }
+
+        /* Hide scrollbar but allow scrolling */
+        #main-content::-webkit-scrollbar {
+            display: none;
+        }
+        #main-content {
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        /* Animation for XP gain and button effects */
+        .xp-gain-animation {
+            animation: pulse-glow 0.5s ease-in-out;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(1); box-shadow: 0 0 0px #4ade80; }
+            50% { transform: scale(1.05); box-shadow: 0 0 10px #4ade80; }
+            100% { transform: scale(1); box-shadow: 0 0 0px #4ade80; }
+        }
+
+        .cube-fill {
+            transition: background-color 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- Header: Global XP Bar and Rank Status -->
+    <header class="p-4 bg-gray-800 sticky top-0 z-10 rounded-b-xl shadow-lg">
+        <h1 class="text-2xl font-bold text-green-400">Life Pass</h1>
+        <div class="mt-2 text-sm text-gray-400">
+            <span id="current-rank-display">Rank 1</span> | Next Rank XP: <span id="xp-in-rank-display">0/9</span> Cubes
+        </div>
+        <!-- XP Progress Bar (9 Cubes) -->
+        <div id="xp-bar" class="flex mt-2 space-x-0.5 h-3">
+            <!-- Cubes will be inserted here by JS -->
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div id="main-content" class="flex-grow p-4">
+        <!-- Content for active tab will be rendered here -->
+    </div>
+
+    <!-- Bottom Navigation Bar (Fixed) -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-420px mx-auto bg-gray-800 border-t border-gray-700 shadow-2xl z-20 rounded-t-xl">
+        <div class="flex justify-around h-14">
+            <button data-tab="ranks" class="nav-button flex-1 flex flex-col items-center justify-center text-sm text-green-400 border-t-2 border-green-400 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 5.5v11L12 22 2 17.5V6.5z"/><polyline points="2 6.5 12 12 22 6.5"/><polyline points="12 2v11"/></svg>
+                Ranks
+            </button>
+            <button data-tab="goals" class="nav-button flex-1 flex flex-col items-center justify-center text-sm text-gray-400 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M12 13l2-2 4 4"/></svg>
+                Goals
+            </button>
+            <button data-tab="inventory" class="nav-button flex-1 flex flex-col items-center justify-center text-sm text-gray-400 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6l4 4h12v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M18 10l-6 6-4-4"/></svg>
+                Inventory
+            </button>
+            <button data-tab="settings" class="nav-button flex-1 flex flex-col items-center justify-center text-sm text-gray-400 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09z"/></svg>
+                Sync
+            </button>
+        </div>
+    </nav>
+</div>
+
+<!-- Simple Modal for Messages/Lootbox Opening -->
+<div id="app-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-30 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+    <div class="bg-gray-700 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center" onclick="event.stopPropagation()">
+        <h3 id="modal-title" class="text-xl font-bold mb-3 text-green-300"></h3>
+        <p id="modal-body" class="text-gray-200 mb-4"></p>
+        <button onclick="document.getElementById('app-modal').classList.add('hidden')" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+            Close
+        </button>
+    </div>
+</div>
+
+<script>
+    // --- PWA Manifest Setup ---
+    
+    // 1. Create the Web App Manifest Data
+    const manifestData = {
+        name: "Life Pass",
+        short_name: "LifePass GO", // CHANGED to force cache refresh
+        description: "Gamify your life with a custom Battle Pass system.",
+        start_url: location.pathname,
+        display: "standalone", // CRITICAL: This is what forces full-screen mode
+        background_color: "#0d1117",
+        theme_color: "#161b22",
+        icons: [
+            // Using a simple square placeholder icon for PWA installation
+            { src: "https://placehold.co/192x192/10b981/ffffff?text=LP", sizes: "192x192", type: "image/png" },
+            { src: "https://placehold.co/512x512/10b981/ffffff?text=LP", sizes: "512x512", type: "image/png" }
+        ]
+    };
+
+    /**
+     * Generates and injects the Web App Manifest.
+     */
+    function generateManifestAndServiceWorker() {
+        // Create a blob for the manifest
+        const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/manifest+json' });
+        const manifestUrl = URL.createObjectURL(manifestBlob);
+
+        // Inject the manifest link into the head
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestUrl;
+        document.head.appendChild(link);
+        
+        console.log('PWA Manifest setup complete.');
+    }
+
+
+    // --- Global State & Configuration ---
+    const STORAGE_KEY = 'lifePassData';
+    const MAX_RANK = 30;
+    const XP_PER_RANK = 9; // 9 'cubes' to level up
+    const CUBE_XP_NORMAL = 3;
+    const CUBE_XP_MINOR = 1;
+
+    let state = {
+        currentRank: 1,
+        currentXPInRank: 0, // 0 to 8, 9 triggers rank up
+        inventory: {}, // Item name -> count, e.g., { 'Energy Boost': 5, 'A Coin': 2 }
+        goals: [], // Active goals
+        completedGoals: [], // History of goals marked as Done
+        claimedRanks: [], // Array of ranks that have claimed their rewards
+    };
+
+    // --- Reward Definitions & Lootbox Table ---
+
+    // Lootbox D20 Roll Table
+    const LOOTBOX_TABLE = [
+        { min: 1, max: 10, item: 'A Coin', quantity: 3, title: '3 Coins' },
+        { min: 11, max: 14, item: 'Scroll of Comfort', quantity: 1, title: 'Uncommon Scroll of Comfort (90 mins cozy break)' },
+        { min: 15, max: 17, item: 'Big Feast', quantity: 1, title: 'Rare Big Feast Token (Cheat Meal)' }, 
+        { min: 18, max: 19, item: 'Scroll of Sanctuary', quantity: 1, title: 'Epic Scroll of Sanctuary Token (2-3 hrs protected time)' },
+        { min: 20, max: 20, item: 'A Coin', quantity: 10, title: 'Legendary 10 Coins!' },
+    ];
+
+    // Short descriptions for inventory display
+    const ITEM_DESCRIPTIONS = {
+        'Your pack of gum': 'An instant, easy win.',
+        'Premium Potion': 'A token for a specialty drink.',
+        'A Coin': 'Grants 2,000 won of value.',
+        'Gourmet Ration': 'A token for an indulgent snack.',
+        'Scroll of Sanctuary': '2-3 hours of uninterrupted protected time.',
+        'Scroll of Recreation': 'A 30-minute guilt-free "do whatever" token.',
+        'Big Feast': 'A cheat meal delivery token.', 
+        'Life Pass Lootbox': 'Roll a D20 for a high-tier prize.',
+        'Scroll of Comfort': 'A 90-minute cozy nap/book token.',
+        'The Royal Cosmetic': 'Budget for new clothes, shoes, or accessories.'
+    };
+
+    // Define the 30 Rank Rewards based on user requirements
+    const rewardsMap = {
+        1: { item: 'Your pack of gum', icon: '🍬', title: 'The First Boon (Your pack of gum)' },
+        2: { item: 'Premium Potion', icon: '🥤', title: 'Premium Potion (Specialty Drink)' },
+        3: { item: 'A Coin', icon: '🪙', title: 'A Coin (2,000 won value)' },
+        4: { item: 'Gourmet Ration', icon: '🍫', title: 'Gourmet Ration (Indulgent Snack)' },
+        5: { item: 'Scroll of Sanctuary', icon: '🛡️', title: 'The Scroll of Sanctuary (Major)' },
+        6: { item: 'Scroll of Recreation', icon: '🕹️', title: 'Scroll of Recreation (30 mins)' },
+        7: { item: 'Premium Potion', icon: '🥤', title: 'Premium Potion (Specialty Drink)' },
+        8: { item: 'A Coin', icon: '🪙', title: 'A Coin (2,000 won value)' },
+        9: { item: 'Gourmet Ration', icon: '🍫', title: 'Gourmet Ration (Indulgent Snack)' },
+        10: { item: 'Big Feast', icon: '🍕', title: 'Big Feast (Major)' }, 
+        11: { item: 'Scroll of Recreation', icon: '🕹️', title: 'Scroll of Recreation (30 mins)' },
+        12: { item: 'Premium Potion', icon: '🥤', title: 'Premium Potion (Specialty Drink)' },
+        13: { item: 'A Coin', icon: '🪙', title: 'A Coin (2,000 won value)' },
+        14: { item: 'Gourmet Ration', icon: '🍫', title: 'Gourmet Ration (Indulgent Snack)' },
+        15: { item: 'Life Pass Lootbox', icon: '🎁', title: 'Loot Box (Major)' },
+        16: { item: 'Scroll of Recreation', icon: '🕹️', title: 'Scroll of Recreation (30 mins)' },
+        17: { item: 'Premium Potion', icon: '🥤', title: 'Premium Potion (Specialty Drink)' },
+        18: { item: 'A Coin', icon: '🪙', title: 'A Coin (2,000 won value)' },
+        19: { item: 'Gourmet Ration', icon: '🍫', title: 'Gourmet Ration (Indulgent Snack)' },
+        20: { item: 'Life Pass Lootbox', icon: '🎁', title: 'Loot Box (Major)' },
+        21: { item: 'Scroll of Recreation', icon: '🕹️', title: 'Scroll of Recreation (30 mins)' },
+        22: { item: 'Premium Potion', icon: '🥤', title: 'Premium Potion (Specialty Drink)' },
+        23: { item: 'A Coin', icon: '🪙', title: 'A Coin (2,000 won value)' },
+        24: { item: 'Gourmet Ration', icon: '🍫', title: 'Gourmet Ration (Indulgent Snack)' },
+        25: { item: 'Life Pass Lootbox', icon: '🎁', title: 'Loot Box (Major)' },
+        26: { item: 'Scroll of Recreation', icon: '🕹️', title: 'Scroll of Recreation (30 mins)' },
+        27: { item: 'Premium Potion', icon: '🥤', title: 'Premium Potion (Specialty Drink)' },
+        28: { item: 'A Coin', icon: '🪙', title: 'A Coin (2,000 won value)' },
+        29: { item: 'Gourmet Ration', icon: '🍫', title: 'Gourmet Ration (Indulgent Snack)' },
+        30: { item: 'The Royal Cosmetic', icon: '👑', title: 'The Royal Cosmetic (Legendary Milestone)' },
+    };
+
+    const rankRewards = [];
+    for (let i = 1; i <= MAX_RANK; i++) {
+        const rewardInfo = rewardsMap[i];
+        let reward = {
+            rank: i,
+            title: rewardInfo.title,
+            icon: rewardInfo.icon,
+            rewardItem: rewardInfo.item,
+            quantity: 1,
+            isMajor: i % 5 === 0,
+            claimed: false,
+        };
+        rankRewards.push(reward);
+    }
+
+    // --- Utility Functions ---
+
+    /** Shows a simple modal message */
+    function showModal(title, body) {
+        document.getElementById('modal-title').textContent = title;
+        document.getElementById('modal-body').innerHTML = body;
+        document.getElementById('app-modal').classList.remove('hidden');
+    }
+
+    /** Saves the current state to LocalStorage. */
+    function saveState() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            console.log('State saved successfully.');
+        } catch (e) {
+            console.error('Error saving state to localStorage:', e);
+            showModal('Error', 'Could not save progress. Local storage might be full or unavailable.');
+        }
+    }
+
+    /** Loads the state from LocalStorage. */
+    function loadState() {
+        try {
+            const storedData = localStorage.getItem(STORAGE_KEY);
+            if (storedData) {
+                const loadedState = JSON.parse(storedData);
+                // Merge loaded state with defaults to ensure all keys exist, including new completedGoals
+                state = { ...state, ...loadedState };
+                // Ensure completedGoals is an array, especially if loading old state structure
+                if (!Array.isArray(state.completedGoals)) {
+                    state.completedGoals = [];
+                }
+                console.log('State loaded successfully.', state);
+            }
+        } catch (e) {
+            console.warn('No state found or error loading state, using defaults.', e);
+        }
+    }
+
+    // --- Core Logic: XP, Rank Advancement, and Cycling ---
+
+    /**
+     * Adds XP and handles rank advancement and cycling.
+     * @param {number} cubes - The number of XP cubes gained (1 or 3).
+     */
+    function addXP(cubes) {
+        let xpGained = cubes;
+        let ranksToAdvance = 0;
+        let rankUp = false;
+
+        // 1. Calculate total XP for the current cycle/rank
+        let newXPInRank = state.currentXPInRank + xpGained;
+
+        if (newXPInRank >= XP_PER_RANK) {
+            rankUp = true;
+            ranksToAdvance = Math.floor(newXPInRank / XP_PER_RANK);
+            newXPInRank = newXPInRank % XP_PER_RANK;
+        }
+
+        // 2. Update state based on advancement
+        if (rankUp) {
+            const oldRank = state.currentRank;
+            state.currentRank += ranksToAdvance;
+
+            if (state.currentRank > MAX_RANK) {
+                // --- LOGIC FOR AUTOMATIC CLAIMING BEFORE CYCLE RESET ---
+                let rewardsAutoClaimed = 0;
+                let unclaimedItemsSummary = {};
+
+                // Find and claim all unclaimed ranks (up to MAX_RANK)
+                for (let r = 1; r <= MAX_RANK; r++) {
+                    // Only auto-claim ranks that were unlocked in the last cycle, up to rank 30
+                    if (r <= oldRank && !state.claimedRanks.includes(r)) { 
+                        const rewardInfo = rewardsMap[r];
+                        if (rewardInfo) {
+                            const item = rewardInfo.item;
+                            const quantity = rewardInfo.quantity || 1; // Default to 1
+                            
+                            state.inventory[item] = (state.inventory[item] || 0) + quantity;
+                            rewardsAutoClaimed++;
+                            
+                            // Track summary for modal
+                            unclaimedItemsSummary[item] = (unclaimedItemsSummary[item] || 0) + quantity;
+                        }
+                    }
+                }
+                
+                // Format summary for the modal
+                let summaryHtml = '';
+                if (rewardsAutoClaimed > 0) {
+                    summaryHtml = '<p class="text-yellow-400 mt-2"><strong>Auto-Claimed Rewards:</strong></p><ul class="list-disc list-inside ml-4 text-left">';
+                    for (const [item, qty] of Object.entries(unclaimedItemsSummary)) {
+                        summaryHtml += `<li class="text-sm">${qty} x ${item}</li>`;
+                    }
+                    summaryHtml += '</ul><p class="mt-3">All previously unclaimed rewards were added to your Inventory.</p>';
+                } else {
+                    summaryHtml = '<p class="mt-3">You claimed all rewards before the reset. Excellent work!</p>';
+                }
+
+                // Cycle logic: E.g., Rank 31 becomes 1
+                state.currentRank = (state.currentRank - 1) % MAX_RANK + 1;
+                state.claimedRanks = []; // Reset claims for the new cycle
+
+                const cycleMessage = `
+                    <p>You have completed a **Life Pass Cycle**!</p>
+                    <p class="mt-2 text-lg font-semibold text-green-300">Starting Rank ${state.currentRank} with ${newXPInRank}/${XP_PER_RANK} XP.</p>
+                    ${summaryHtml}
+                    <p class="mt-4">All ranks are now unclaimed for the new cycle!</p>
+                `;
+
+                showModal('New Life Cycle Activated!', cycleMessage);
+                // --- END LOGIC FOR AUTOMATIC CLAIMING ---
+
+            } else {
+                // Normal rank up logic
+                let rankUpMessage = `
+                    <p>Congratulations! You advanced from Rank ${oldRank} to Rank ${state.currentRank}!</p>
+                    <p class="mt-2 text-lg font-semibold">Don't forget to claim your rewards in the Ranks tab!</p>
+                `;
+                showModal('Rank Up!', rankUpMessage);
+            }
+        }
+
+        state.currentXPInRank = newXPInRank;
+
+        // Visual feedback for XP gain
+        if (xpGained > 0) {
+            const header = document.querySelector('header');
+            header.classList.add('xp-gain-animation');
+            setTimeout(() => header.classList.remove('xp-gain-animation'), 500);
+        }
+
+        saveState();
+        renderHeader();
+        if (document.querySelector('.nav-button[data-tab="ranks"]').classList.contains('border-green-400')) {
+            renderRanksTab(); // Re-render ranks to show unclaimed rewards
+        }
+    }
+
+    /**
+     * Claims the reward for a specific rank.
+     * @param {number} rank - The rank number to claim.
+     */
+    function claimReward(rank) {
+        const reward = rankRewards.find(r => r.rank === rank);
+
+        if (!reward) return;
+
+        if (state.claimedRanks.includes(rank)) {
+            showModal('Already Claimed', `Reward for Rank ${rank} has already been claimed.`);
+            return;
+        }
+
+        if (rank > state.currentRank) {
+            showModal('Not Unlocked', `You must reach Rank ${rank} to claim this reward.`);
+            return;
+        }
+
+        // Add reward to inventory
+        state.inventory[reward.rewardItem] = (state.inventory[reward.rewardItem] || 0) + reward.quantity;
+        state.claimedRanks.push(rank);
+
+        saveState();
+        showModal('Reward Claimed!', `${reward.icon} You claimed <strong>${reward.quantity} x ${reward.rewardItem}</strong>!`);
+        activateTab('inventory'); // Switch to inventory tab after claiming
+    }
+
+
+    // --- UI Rendering Functions ---
+
+    /** Renders the XP bar and global rank status in the header. */
+    function renderHeader() {
+        const xpBarEl = document.getElementById('xp-bar');
+        const currentRankEl = document.getElementById('current-rank-display');
+        const xpInRankEl = document.getElementById('xp-in-rank-display');
+
+        currentRankEl.textContent = `Rank ${state.currentRank}`;
+        xpInRankEl.textContent = `${state.currentXPInRank}/${XP_PER_RANK}`;
+
+        xpBarEl.innerHTML = '';
+        for (let i = 0; i < XP_PER_RANK; i++) {
+            const cube = document.createElement('div');
+            cube.className = `cube-fill flex-1 h-full rounded-sm ${
+                i < state.currentXPInRank ? 'bg-green-500' : 'bg-gray-600'
+            }`;
+            xpBarEl.appendChild(cube);
+        }
+    }
+
+    /** Renders the Ranks Tab content. */
+    function renderRanksTab() {
+        const content = document.getElementById('main-content');
+        let html = '<h2 class="text-xl font-semibold mb-4 text-green-300">Life Pass Ranks (1 - 30)</h2>';
+
+        // Display ranks in reverse order so the current/latest is near the top
+        rankRewards.slice().reverse().forEach(reward => {
+            const isClaimed = state.claimedRanks.includes(reward.rank);
+            const isUnlocked = reward.rank <= state.currentRank;
+            const canClaim = isUnlocked && !isClaimed;
+            const claimedClass = isClaimed ? 'opacity-50 border-gray-600' : '';
+            const unlockedClass = isUnlocked ? 'hover:bg-gray-700 cursor-pointer' : 'opacity-30';
+            const majorClass = reward.isMajor ? 'border-yellow-500 bg-yellow-900 bg-opacity-10' : 'border-gray-600';
+
+            // Pre-calculate the modal body string
+            const statusText = isClaimed ? 'Reward claimed.' : (isUnlocked ? 'Ready to claim.' : 'Not yet unlocked.');
+            const modalBody = `<strong>Rank ${reward.rank}</strong>: ${reward.title}<br><br>Reward: <strong>1 x ${reward.rewardItem}</strong><br><br>${statusText}`;
+            
+            // FIX: Manually escape single quotes in the string content to make it safe for injection into the onclick attribute's string literal
+            const escapedModalBody = modalBody.replace(/'/g, "\\'");
+
+            html += `
+                <div class="p-3 mb-3 flex items-center justify-between border-l-4 ${majorClass} rounded-lg shadow-lg ${unlockedClass} ${claimedClass}"
+                     onclick="${canClaim ? `claimReward(${reward.rank})` : `showModal('Rank Info', '${escapedModalBody}')`}"
+                     data-rank="${reward.rank}"
+                >
+                    <div class="flex items-center">
+                        <div class="text-3xl mr-3">${reward.icon}</div>
+                        <div>
+                            <p class="font-bold text-lg">Rank ${reward.rank}</p>
+                            <p class="text-sm text-gray-400">${reward.title}</p>
+                        </div>
+                    </div>
+                    ${canClaim ?
+                        '<button class="px-3 py-1 bg-green-600 text-white rounded-lg text-sm font-semibold shadow-md">CLAIM</button>' :
+                        (isClaimed ? '<span class="text-green-500 text-sm">CLAIMED</span>' : '<span class="text-gray-400 text-sm">LOCKED</span>')
+                    }
+                </div>
+            `;
+        });
+
+        content.innerHTML = html;
+
+        // Scroll to the last completed rank (or rank 1 if just started)
+        const lastUnlockedRank = Math.min(state.currentRank, MAX_RANK);
+        const rankEl = content.querySelector(`[data-rank="${lastUnlockedRank}"]`);
+
+        if (rankEl) {
+             rankEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // --- Goal Management Functions ---
+
+    /** Handles adding a new goal to the list. */
+    function addGoal() {
+        const input = document.getElementById('goal-description');
+        const isMinor = document.getElementById('is-minor-task').checked;
+        const description = input.value.trim();
+
+        if (description === '') {
+            console.warn('Goal description empty.');
+            return;
+        }
+
+        const newGoal = {
+            id: Date.now(), // Simple unique ID
+            description: description,
+            xp: isMinor ? CUBE_XP_MINOR : CUBE_XP_NORMAL,
+            addedAt: new Date().toISOString(),
+        };
+
+        state.goals.push(newGoal);
+        input.value = '';
+        document.getElementById('is-minor-task').checked = false;
+        saveState();
+        renderGoalsTab();
+    }
+
+    /** Handles completing a goal, granting XP, and moving it to history. */
+    function completeGoal(id, xp) {
+        // Find the goal being completed
+        const goalIndex = state.goals.findIndex(goal => goal.id === id);
+        if (goalIndex === -1) return;
+
+        const completedGoal = state.goals[goalIndex];
+        completedGoal.completedAt = new Date().toISOString(); // Add completion timestamp
+
+        // 1. Grant XP (calls saveState and renders header/ranks)
+        addXP(xp);
+
+        // 2. Move goal to completed history
+        state.completedGoals.push(completedGoal);
+
+        // 3. Remove from active goals
+        state.goals.splice(goalIndex, 1);
+
+        saveState();
+        renderGoalsTab();
+    }
+
+    /** Deletes an active or completed goal without granting XP. */
+    function deleteGoal(id, isCompleted = false) {
+        if (isCompleted) {
+            state.completedGoals = state.completedGoals.filter(goal => goal.id !== id);
+        } else {
+            state.goals = state.goals.filter(goal => goal.id !== id);
+        }
+        saveState();
+        renderGoalsTab();
+    }
+
+    /** Renders the Goals Tab content. */
+    function renderGoalsTab() {
+        const content = document.getElementById('main-content');
+
+        const addGoalHtml = `
+            <div class="bg-gray-700 p-4 rounded-xl shadow-lg mb-6">
+                <h3 class="text-lg font-semibold mb-2 text-green-300">Add New Goal</h3>
+                <input id="goal-description" type="text" placeholder="e.g., Complete 30 min workout" class="w-full p-2 mb-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:ring-green-500 focus:ring-2 border-none">
+                <div class="flex justify-between items-center">
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="is-minor-task" class="form-checkbox h-5 w-5 text-green-600 rounded-md bg-gray-600 border-none focus:ring-green-500">
+                        <span class="ml-2 text-gray-300">Minor Task (1 Cube XP)</span>
+                    </label>
+                    <button onclick="addGoal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+                        Add Goal
+                    </button>
+                </div>
+            </div>
+        `;
+
+        let goalListHtml = '<h3 class="text-xl font-semibold mb-3 text-green-300">Active Goals</h3>';
+        if (state.goals.length === 0) {
+            goalListHtml += '<p class="text-gray-400 italic mb-6">No active goals. Add one above!</p>';
+        } else {
+            state.goals.forEach((goal) => {
+                const xpLabel = goal.xp === CUBE_XP_MINOR ? '1 Cube (Minor)' : '3 Cubes (Normal)';
+                goalListHtml += `
+                    <div class="flex items-center justify-between bg-gray-700 p-3 mb-2 rounded-lg shadow-md border-l-4 border-green-500">
+                        <div class="flex-grow">
+                            <p class="text-white">${goal.description}</p>
+                            <p class="text-sm text-gray-400">${xpLabel}</p>
+                        </div>
+                        <button onclick="deleteGoal(${goal.id})" class="text-gray-400 hover:text-red-400 p-2 mr-2 transition duration-150">
+                            <!-- Trash Can Icon (Delete without XP) -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
+                        <button onclick="completeGoal(${goal.id}, ${goal.xp})" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-md transition duration-150">
+                            Done
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        // Completed Goals Section
+        let completedHtml = '<h3 class="text-xl font-semibold mb-3 mt-6 text-green-300">Completed History</h3>';
+        if (state.completedGoals.length === 0) {
+            completedHtml += '<p class="text-gray-400 italic">No completed goals yet.</p>';
+        } else {
+            // Display newest completed goals first
+            state.completedGoals.slice().reverse().forEach((goal) => {
+                completedHtml += `
+                    <div class="flex items-center justify-between bg-gray-800 p-3 mb-2 rounded-lg shadow-inner opacity-50">
+                        <div class="flex-grow">
+                            <p class="text-gray-400 line-through">${goal.description}</p>
+                            <p class="text-xs text-gray-500">Completed: ${new Date(goal.completedAt).toLocaleDateString()}</p>
+                        </div>
+                        <button onclick="deleteGoal(${goal.id}, true)" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-md transition duration-150">
+                            Delete
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        content.innerHTML = addGoalHtml + goalListHtml + completedHtml;
+    }
+
+
+    // --- Inventory Management Functions ---
+
+    /** General dispatcher for using reward items. */
+    function useRewardItem(itemName) {
+        if (!state.inventory[itemName] || state.inventory[itemName] <= 0) return;
+
+        // Check for items that require a separate usage modal (like Coins)
+        if (itemName === 'A Coin') {
+            showCoinUsageModal(itemName);
+            return;
+        }
+        if (itemName === 'Life Pass Lootbox') {
+            openLootbox(itemName);
+            return;
+        }
+
+        // Handle standard 1-use items
+        state.inventory[itemName]--;
+        let message = '';
+
+        switch (itemName) {
+            case 'Your pack of gum':
+                message = 'You chewed your pack of gum. Instant, easy win achieved!';
+                break;
+            case 'Premium Potion':
+                message = 'Ahhh! That specialty drink was worth it. Energy replenished!';
+                break;
+            case 'Gourmet Ration':
+                message = 'Delicious! That indulgent snack has satisfied your inner craving.';
+                break;
+            case 'Scroll of Recreation':
+                message = 'Guilt-free 30 minutes activated! Time to do whatever you want. Enjoy!';
+                break;
+            case 'Scroll of Sanctuary':
+                message = 'Sanctuary Protocol initiated: You now have 2-3 hours of protected, uninterrupted time. Use it wisely!';
+                break;
+            case 'Big Feast':
+                message = 'Feast Mode unlocked! Order that delicious, fun delivery food, guilt-free!'; 
+                break;
+            case 'The Royal Cosmetic':
+                message = 'Monthly Armor Set budget unlocked! Time for new clothes, shoes, or accessories!';
+                break;
+            case 'Scroll of Comfort':
+                message = '90 minutes of cozy nap/book/hot drink time activated. Enjoy the comfort!';
+                break;
+            default:
+                message = `You used one <strong>${itemName}</strong>. Effect applied!`;
+                break;
+        }
+
+        saveState();
+        showModal('Item Used', message);
+        renderInventoryTab();
+    }
+
+
+    /** Handles opening the coin usage modal. */
+    function showCoinUsageModal(itemName) {
+        const count = state.inventory[itemName];
+
+        let bodyHtml = `
+            <p class="text-gray-200 mb-4">You have <strong>${count} x A Coin</strong> (2,000 won value each). How many would you like to use?</p>
+            <div class="flex flex-col items-center">
+                <input type="number" id="coin-use-quantity" min="1" max="${count}" value="1"
+                       class="w-full p-2 mb-4 rounded-lg bg-gray-600 text-white placeholder-gray-400 text-center border-none focus:ring-green-500 focus:ring-2">
+                <button onclick="useCoinsConfirm('${itemName}', document.getElementById('coin-use-quantity').value)"
+                        class="px-4 py-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+                    Use Selected Coins
+                </button>
+            </div>
+        `;
+        document.getElementById('modal-title').textContent = 'Use Coins';
+        document.getElementById('modal-body').innerHTML = bodyHtml;
+        document.getElementById('app-modal').classList.remove('hidden');
+        // Small delay to ensure input is ready for focus
+        setTimeout(() => document.getElementById('coin-use-quantity').focus(), 100);
+    }
+
+    /** Confirms and executes the coin usage. */
+    function useCoinsConfirm(itemName, quantityStr) {
+        const quantity = parseInt(quantityStr);
+        const available = state.inventory[itemName];
+
+        if (isNaN(quantity) || quantity <= 0 || quantity > available) {
+            showModal('Error', `Please enter a valid number between 1 and ${available}.`);
+            return;
+        }
+
+        state.inventory[itemName] -= quantity;
+        saveState();
+        document.getElementById('app-modal').classList.add('hidden');
+        showModal('Coins Used', `You used <strong>${quantity} x A Coin</strong>! That's ${quantity * 2000} won of spending power unlocked!`);
+        renderInventoryTab();
+    }
+
+
+    /** Handles opening a Lootbox (randomized reward based on D20 roll). */
+    function openLootbox(itemName) {
+        if (state.inventory[itemName] && state.inventory[itemName] > 0) {
+            state.inventory[itemName]--;
+
+            const roll = Math.floor(Math.random() * 20) + 1; // D20 Roll (1 to 20)
+            let result = LOOTBOX_TABLE.find(r => roll >= r.min && roll <= r.max);
+
+            if (!result) { // Fallback
+                result = { item: 'Energy Boost', quantity: 1, title: 'Small Energy Boost' };
+            }
+
+            // Grant the item
+            state.inventory[result.item] = (state.inventory[result.item] || 0) + result.quantity;
+            saveState();
+
+            const title = roll === 20 ? '🔥 LEGENDARY ROLL! 🔥' : 'Lootbox Opened';
+            const body = `<p class="mb-3">You rolled a <strong>${roll}</strong>!</p>
+                          <p>You received: <strong>${result.quantity} x ${result.item}</strong> (${result.title})</p>`;
+
+            showModal(title, body);
+            renderInventoryTab();
+        }
+    }
+
+
+    /** Renders the Inventory Tab content. */
+    function renderInventoryTab() {
+        const content = document.getElementById('main-content');
+
+        let html = '<h2 class="text-xl font-semibold mb-4 text-green-300">Inventory & Loot</h2>';
+
+        const itemNames = Object.keys(state.inventory).sort();
+        if (itemNames.length === 0 || itemNames.every(name => state.inventory[name] === 0)) {
+            html += '<p class="text-gray-400 italic">Your inventory is empty. Complete tasks and rank up to earn rewards!</p>';
+        } else {
+            itemNames.forEach(itemName => {
+                const count = state.inventory[itemName];
+                if (count > 0) {
+                    // This lookup is necessary for the icon if the item isn't directly a rank reward (like 'Scroll of Comfort')
+                    const rewardKey = Object.keys(rewardsMap).find(key => rewardsMap[key].item === itemName);
+                    let icon = rewardKey ? rewardsMap[rewardKey].icon : '⭐';
+
+                    if (itemName === 'Scroll of Comfort') icon = '🛋️'; // Custom icon for lootbox exclusive item
+                    if (itemName === 'The Royal Cosmetic') icon = '👑'; 
+
+                    const isLootbox = itemName.includes('Lootbox');
+                    // Use the new short description map
+                    const description = ITEM_DESCRIPTIONS[itemName] || 'A mysterious reward item.';
+                    
+                    const buttonText = isLootbox ? 'OPEN' : (itemName === 'A Coin' ? 'USE COINS' : 'USE 1');
+                    const buttonColor = isLootbox ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-blue-600 hover:bg-blue-700';
+
+                    html += `
+                        <div class="flex items-center justify-between bg-gray-700 p-3 mb-2 rounded-lg shadow-md border-l-4 border-blue-500">
+                            <div class="flex items-center">
+                                <span class="text-3xl mr-3">${icon}</span>
+                                <div>
+                                    <p class="text-white font-bold">${itemName} (x${count})</p>
+                                    <p class="text-sm text-gray-400">${description}</p>
+                                </div>
+                            </div>
+                            <button onclick="useRewardItem('${itemName}')" class="px-3 py-1 ${buttonColor} text-white text-sm font-semibold rounded-lg shadow-md transition duration-150">
+                                ${buttonText}
+                            </button>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        content.innerHTML = html;
+    }
+
+
+    // --- File Sync / Settings ---
+
+    function renderSettingsTab() {
+        const content = document.getElementById('main-content');
+        content.innerHTML = `
+            <h2 class="text-xl font-semibold mb-4 text-green-300">Sync & Data Management</h2>
+
+            <!-- Export Section -->
+            <div class="bg-gray-700 p-4 rounded-xl shadow-lg mb-6">
+                <h3 class="text-lg font-semibold mb-2 text-white">Export Data (.battlepass)</h3>
+                <p class="text-gray-400 mb-3">Download your current progress as a file for backup or sync across devices.</p>
+                <button onclick="exportData()" class="px-4 py-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+                    Download .battlepass File
+                </button>
+            </div>
+
+            <!-- Import Section -->
+            <div class="bg-gray-700 p-4 rounded-xl shadow-lg">
+                <h3 class="text-lg font-semibold mb-2 text-white">Import Data (.battlepass)</h3>
+                <p class="text-gray-400 mb-3">Upload a .battlepass file to restore your progress (this will overwrite current data).</p>
+                <input type="file" id="import-file-input" accept=".battlepass" class="hidden" onchange="importData(event)">
+                <button onclick="document.getElementById('import-file-input').click()" class="px-4 py-2 w-full bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+                    Upload .battlepass File
+                </button>
+            </div>
+        `;
+    }
+
+    /** Exports current state to a .battlepass file. */
+    function exportData() {
+        const dataStr = JSON.stringify(state, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `life_pass_backup_${new Date().toISOString().slice(0, 10)}.battlepass`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showModal('Export Complete', 'Your progress has been successfully saved to a .battlepass file!');
+    }
+
+    /** Imports state from a .battlepass file. */
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedState = JSON.parse(e.target.result);
+                // Simple validation to ensure it looks like our state
+                if (importedState.currentRank !== undefined && importedState.inventory !== undefined) {
+                    state = importedState;
+                    saveState();
+                    // Re-render all major UI components
+                    renderHeader();
+                    // Keep the current tab active after import
+                    const activeTab = document.querySelector('.nav-button.border-green-400').dataset.tab;
+                    activateTab(activeTab);
+                    showModal('Import Successful', 'Your progress has been restored from the .battlepass file!');
+                } else {
+                    throw new Error('Invalid file structure.');
+                }
+            } catch (error) {
+                showModal('Import Failed', `Error processing file: ${error.message}. Please ensure the file is a valid .battlepass JSON backup.`);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+
+    // --- App Initialization and Event Handlers ---
+
+    /** Switches the active tab and calls the corresponding renderer. */
+    function activateTab(tabName) {
+        const navButtons = document.querySelectorAll('.nav-button');
+        navButtons.forEach(button => {
+            const isActive = button.dataset.tab === tabName;
+            button.classList.toggle('border-green-400', isActive);
+            button.classList.toggle('text-green-400', isActive);
+            button.classList.toggle('text-gray-400', !isActive);
+            button.classList.toggle('border-t-2', isActive);
+            button.classList.toggle('border-t-0', !isActive);
+        });
+
+        const mainContent = document.getElementById('main-content');
+        mainContent.scrollTop = 0; // Scroll to top when changing tabs
+
+        switch (tabName) {
+            case 'ranks':
+                renderRanksTab();
+                break;
+            case 'goals':
+                renderGoalsTab();
+                break;
+            case 'inventory':
+                renderInventoryTab();
+                break;
+            case 'settings':
+                renderSettingsTab();
+                break;
+            default:
+                renderRanksTab();
+        }
+    }
+
+    /** Initializes the application on window load. */
+    window.onload = function() {
+        // 1. Generate Manifest (PWA setup)
+        generateManifestAndServiceWorker();
+
+        // 2. Load data
+        loadState();
+
+        // 3. Set up navigation
+        document.querySelectorAll('.nav-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                activateTab(e.currentTarget.dataset.tab);
+            });
+        });
+
+        // 4. Initial rendering
+        renderHeader();
+        activateTab('ranks'); // Default view
+    };
+
+</script>
+
+</body>
+</html>
