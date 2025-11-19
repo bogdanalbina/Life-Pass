@@ -28,7 +28,7 @@
             align-items: flex-start;
             min-height: 100vh;
             /* Disable pull-to-refresh for native feel */
-            overflow: hidden;
+            overflow-behavior-y: contain;
         }
 
         #app-container {
@@ -51,6 +51,8 @@
             scrollbar-width: none; /* Firefox */
             flex-grow: 1;
             overflow-y: auto;
+            overscroll-behavior: none;
+
         }
 
         /* Animation for XP gain and button effects */
